@@ -1,153 +1,164 @@
-//Grab data from keys.js
-var keys = require('./keys.js');
-var request = require('request');
-var twitter = require('twitter');
-var spotify = require('spotify');
-var client = new twitter(keys.twitterKeys);
-var fs = require('fs');
 
-//Stored argument's array
-var nodeArgv = process.argv;
-var command = process.argv[2];
-//movie or song
-var x = "";
-//attaches multiple word arguments
-for (var i=3; i<nodeArgv.length; i++){
-  if(i>3 && i<nodeArgv.length){
-    x = x + "+" + nodeArgv[i];
-  } else{
-    x = x + nodeArgv[i];
-  }
-}
+//Used to set variables
+require("dotenv").config();
 
-//switch case
-switch(command){
+//Used to call twitter npm
+var Twitter = require("twitter");
+
+//Used to call Spotify npm
+var Spotify = require("node-spotify-api");
+
+//Used to call API Keys for twitter and spotify
+var keys = require("./keys");
+
+//Used to request npm pacakges
+var request = require("request");
+
+//Used to call fs npm for reading and writing to text files
+var fs = require("fs");
+
+//Setting up comman line keyword search with switch condition
+var pick = function(dataSearch, Parameters) {
+  switch (dataSearch) {
   case "my-tweets":
-    showTweets();
-  break;
-
-  case "spotify-this-song":
-    if(x){
-      spotifySong(x);
-    } else{
-      spotifySong("Fluorescent Adolescent");
-    }
-  break;
-
+    twitterSearch();
+    break;
   case "movie-this":
-    if(x){
-      omdbData(x)
-    } else{
-      omdbData("Mr. Nobody")
-    }
-  break;
-
+    movieSearch(Parameters);
+    break;
+  case "spotify-this-song":
+    spotifySearch(Parameters);
+    break;
   case "do-what-it-says":
-    doThing();
-  break;
-
+    tellMeWhat();
+    break;
   default:
-    console.log("{Please enter a command: my-tweets, spotify-this-song, movie-this, do-what-it-says}");
-  break;
-}
+    console.log("LIRI doesn't know that");
+  }
+};
 
-function showTweets(){
-  //Display last 20 Tweets
-  var screenName = {screen_name: 'Coding1987'};
-  client.get('statuses/user_timeline', screenName, function(error, tweets, response){
-    if(!error){
-      for(var i = 0; i<tweets.length; i++){
-        var date = tweets[i].created_at;
-        console.log("@Coding1987: " + tweets[i].text + " Created At: " + date.substring(0, 19));
-        console.log("-----------------------");
-        
-        //adds text to log.txt file
-        fs.appendFile('log.txt', "@Coding1987: " + tweets[i].text + " Created At: " + date.substring(0, 19));
-        fs.appendFile('log.txt', "-----------------------");
+//Function To log to text file using fs npm
+var logToText = function(data) {
+  fs.appendFile("log.tx", JSON.stringify(data) + "\n" + function(err){
+    if (err) {
+      throw (err);
+    } else {
+      consolge.log("log.txt was updated, look at you go!")
+    }
+  });
+};
+
+//Creating function for Twitter search
+var twitterSearch = function() {
+  var twitterUser = new Twitter(keys.twitter);
+  var params = { screen_name: "Coding1987" };
+  twitterUser.get("statuses/user_timeline", params, function(error, tweets, response) {
+    if (!error) {
+      var data = [];
+
+      for (var i = 0; i < tweets.length; i++) {
+        data.push({
+          created_at: tweets[i].created_at,
+          text: tweets[i].text
+        });
       }
-    }else{
-      console.log('Error occurred');
+      //Writing data to text file and logging to the console
+      console.log(data);
+      logToText(data);
     }
   });
-}
+};
 
-function spotifySong(song){
-  spotify.search({ type: 'track', query: song}, function(error, data){
-    if(!error){
-      for(var i = 0; i < data.tracks.items.length; i++){
-        var songData = data.tracks.items[i];
-        //artist
-        console.log("Artist: " + songData.artists[0].name);
-        //song name
-        console.log("Song: " + songData.name);
-        //spotify preview link
-        console.log("Preview URL: " + songData.preview_url);
-        //album name
-        console.log("Album: " + songData.album.name);
-        console.log("-----------------------");
-        
-        //adds text to log.txt
-        fs.appendFile('log.txt', songData.artists[0].name);
-        fs.appendFile('log.txt', songData.name);
-        fs.appendFile('log.txt', songData.preview_url);
-        fs.appendFile('log.txt', songData.album.name);
-        fs.appendFile('log.txt', "-----------------------");
-      }
-    } else{
-      console.log('Error occurred.');
+//Setting up the movie search function
+var movieSearch = function(userMovieInput) {
+  if (userMovieInput === undefined) {
+    userMovieInput = "Mr Nobody";
+  }
+
+  var url = "http://www.omdbapi.com/?t=" + userMovieInput + "&y=&plot=full&tomatoes=true&apikey=trilogy";
+
+  request(url, function(error, response, body) {
+    if (!error && response.statusCode === 200) {
+      var jsonData = JSON.parse(body);
+
+      var data = {
+        "Title:": jsonData.Title,
+        "Year:": jsonData.Year,
+        "Rated:": jsonData.Rated,
+        "IMDB Rating:": jsonData.imdbRating,
+        "Country:": jsonData.Country,
+        "Language:": jsonData.Language,
+        "Plot:": jsonData.Plot,
+        "Actors:": jsonData.Actors,
+        "Rotten Tomatoes Rating:": jsonData.Ratings[1].Value
+      };
+      //Writing movie input to text file and the console
+      console.log(data);
+      logToText(data);
     }
   });
-}
+};
 
-function omdbData(movie){
-  var omdbURL = 'http://www.omdbapi.com/?t=' + movie + '&plot=short&tomatoes=true';
+//Setting up artist name search to work with for loop
+var artistArray = function(artist) {
+  return artist.name;
+};
 
-  request(omdbURL, function (error, response, body){
-    if(!error && response.statusCode == 200){
-      var body = JSON.parse(body);
+//Setting up new spotify object with API Keys
+var newSpotify = new Spotify(keys.spotify);
 
-      console.log("Title: " + body.Title);
-      console.log("Release Year: " + body.Year);
-      console.log("IMdB Rating: " + body.imdbRating);
-      console.log("Country: " + body.Country);
-      console.log("Language: " + body.Language);
-      console.log("Plot: " + body.Plot);
-      console.log("Actors: " + body.Actors);
-      console.log("Rotten Tomatoes Rating: " + body.tomatoRating);
-      console.log("Rotten Tomatoes URL: " + body.tomatoURL);
+//Creating Spotify function
+var spotifySearch = function(userSongSearch) {
+  if (userSongSearch === undefined) {
+    userSongSearch = "The Sign";
+  }
 
-      //adds text to log.txt
-      fs.appendFile('log.txt', "Title: " + body.Title);
-      fs.appendFile('log.txt', "Release Year: " + body.Year);
-      fs.appendFile('log.txt', "IMdB Rating: " + body.imdbRating);
-      fs.appendFile('log.txt', "Country: " + body.Country);
-      fs.appendFile('log.txt', "Language: " + body.Language);
-      fs.appendFile('log.txt', "Plot: " + body.Plot);
-      fs.appendFile('log.txt', "Actors: " + body.Actors);
-      fs.appendFile('log.txt', "Rotten Tomatoes Rating: " + body.tomatoRating);
-      fs.appendFile('log.txt', "Rotten Tomatoes URL: " + body.tomatoURL);
-
-    } else{
-      console.log('Error occurred.')
+  newSpotify.search({ type: "track", query: userSongSearch }, function(err, data) {
+    if (err) {
+      console.log("Error occurred: " + err);
+      return;
     }
-    if(movie === "Mr. Nobody"){
-      console.log("-----------------------");
-      console.log("If you haven't watched 'Mr. Nobody,' then you should: http://www.imdb.com/title/tt0485947/");
-      console.log("It's on Netflix!");
 
-      //adds text to log.txt
-      fs.appendFile('log.txt', "-----------------------");
-      fs.appendFile('log.txt', "If you haven't watched 'Mr. Nobody,' then you should: http://www.imdb.com/title/tt0485947/");
-      fs.appendFile('log.txt', "It's on Netflix!");
+    var songs = data.tracks.items;
+    var data = [];
+
+    for (var i = 0; i < songs.length; i++) {
+      data.push({
+        "artist(s)": songs[i].artists.map(artistArray),
+        "song name: ": songs[i].name,
+        "preview song: ": songs[i].preview_url,
+        "album: ": songs[i].album.name
+      });
+    }
+    //Writing spotify songs to text file and console log
+    console.log(data);
+    logToText(data);
+  });
+};
+
+//Creating do-what-it-says function
+var tellMeWhat = function() {
+  fs.readFile("random.txt", "utf8", function(error, data) {
+    console.log(data);
+
+    var dataLength = data.split(",");
+
+    if (dataLength.length === 2) {
+      pick(dataLength[0], dataLength[1]);
+    }
+    else if (dataLength.length === 1) {
+      pick(dataLength[0]);
     }
   });
+};
 
-}
+//Running the command line commands based of second and third index in node
+doThisForMe(process.argv[2], process.argv[3]);
 
-function doThing(){
-  fs.readFile('random.txt', "utf8", function(error, data){
-    var txt = data.split(',');
+//Command line function that produces the correct argument
+var doThisForMe = function(firstArgument, secondArgument) {
+  pick(firstArgument, secondArgument);
+};
 
-    spotifySong(txt[1]);
-  });
-}
+
+
