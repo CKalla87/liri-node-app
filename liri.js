@@ -152,13 +152,15 @@ var tellMeWhat = function() {
   });
 };
 
-//Running the command line commands based of second and third index in node
-doThisForMe(process.argv[2], process.argv[3]);
-
 //Command line function that produces the correct argument
-var doThisForMe = function(firstArgument, secondArgument) {
+var run = function(firstArgument, secondArgument) {
   pick(firstArgument, secondArgument);
 };
+
+//Running the command line commands based of second and third index in node
+run(process.argv[2], process.argv[3]);
+
+
 
 
 
